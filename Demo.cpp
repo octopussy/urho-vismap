@@ -17,8 +17,14 @@
 #include <Urho3D/Scene/Scene.h>
 #include <Urho3D/Scene/SceneEvents.h>
 #include <Urho3D/Graphics/DebugRenderer.h>
+
+#include <Urho3D/Urho2D/Sprite2D.h>
+
+#include <Urho3D/Urho2D/RigidBody2D.h>
+#include <Urho3D/Urho2D/CollisionChain2D.h>
+#include <Urho3D/Urho2D/CollisionBox2D.h>
+#include <Urho3D/Urho2D/PhysicsWorld2D.h>
 #include <Urho3D/Math/Vector2.h>
-#include <Urho3D/Math/Vector3.h>
 
 #include "Demo.h"
 
@@ -35,11 +41,10 @@ void Demo::Setup() {
     engineParameters_["FullScreen"] = false;
     engineParameters_["Headless"] = false;
     engineParameters_["Sound"] = false;
-
-
 }
 
 void Demo::Start() {
+    ResourceCache *cache = GetSubsystem<ResourceCache>();
     Input *input = GetSubsystem<Input>();
 
     input->SetMouseMode(MouseMode::MM_ABSOLUTE);
@@ -49,8 +54,27 @@ void Demo::Start() {
 
     scene_ = new Scene(context_);
 
-    scene_->CreateComponent<Octree>();
+    Octree* octree = scene_->CreateComponent<Octree>();
     debugRenderer_ = scene_->CreateComponent<DebugRenderer>();
+    b2world_ = scene_->CreateComponent<PhysicsWorld2D>();
+
+    geometry_ = scene_->CreateChild("Geometry");
+    geometry_->CreateComponent<RigidBody2D>();
+    chain = geometry_->CreateComponent<CollisionChain2D>();
+
+    CollisionBox2D *box = geometry_->CreateComponent<CollisionBox2D>();
+
+    box->SetSize(40, 40);
+    box->SetAngle(45);
+
+    PODVector<Vector2> vertices = PODVector<Vector2>();
+    vertices.Push(Vector2(0, 0));
+    vertices.Push(Vector2(50, 0));
+    vertices.Push(Vector2(50, 50));
+    vertices.Push(Vector2(100, 50));
+    chain->SetVertices(vertices);
+
+    Sprite2D* boxSprite = cache->GetResource<Sprite2D>("Urho2D/Box.png");
 
     cameraNode_ = scene_->CreateChild("Camera");
     // Set camera's position
@@ -59,8 +83,6 @@ void Demo::Start() {
     Camera *camera = cameraNode_->CreateComponent<Camera>();
     camera->SetFarClip(100.0f);
     camera->SetOrthographic(true);
-
-    Graphics *graphics = GetSubsystem<Graphics>();
     camera->SetOrthoSize((float) 500);
 
     Renderer *renderer = GetSubsystem<Renderer>();
@@ -98,6 +120,8 @@ void Demo::CreateUI() {
 void Demo::HandleUpdate(StringHash eventType, VariantMap &eventData) {
     using namespace Update;
 
+    Graphics *graphics = GetSubsystem<Graphics>();
+
     // Take the frame time step, which is stored as a float
     float timeStep = eventData[P_TIMESTEP].GetFloat();
 
@@ -111,12 +135,24 @@ void Demo::HandleUpdate(StringHash eventType, VariantMap &eventData) {
 }
 
 void Demo::Render(StringHash eventType, VariantMap &eventData) {
+
 }
 
 void Demo::HandlePostRenderUpdate(StringHash eventType, VariantMap &eventData) {
-    //debugRenderer_->SetView(cameraNode_->GetComponent<Camera>());
-    debugRenderer_->AddLine(Vector3(0, 0), Vector3(100, 100), Color::BLUE);
-    //debugRenderer_->Render();
+    Graphics *graphics = GetSubsystem<Graphics>();
+    PhysicsWorld2D *phWorld = scene_->GetComponent<PhysicsWorld2D>();
+
+    phWorld->SetDrawShape(true);
+    phWorld->DrawDebugGeometry();
+
+    PhysicsRaycastResult2D result;
+    phWorld->RaycastSingle(result, cameraNode_->GetPosition2D(), cameraNode_->GetPosition2D() + Vector2(-1000, 0));
+
+    if (result.body_ != nullptr) {
+        debugRenderer_->AddLine(cameraNode_->GetPosition2D(), result.position_, Color::BLUE);
+    }
+    //chain->DrawDebugGeometry(debugRenderer_, false);
+    //debugRenderer_->AddLine(Vector3(0, 0), Vector3(100, 100), Color::BLUE);
 }
 
 void Demo::MoveCamera(float timeStep) {

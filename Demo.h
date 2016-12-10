@@ -15,6 +15,8 @@ class Demo : public Application {
 
     SharedPtr<Text> debugText_;
 
+    SharedPtr<PhysicsWorld2D> b2world_;
+
 public:
     Demo(Context* context);
 
@@ -32,4 +34,7 @@ private:
     void HandlePostRenderUpdate(StringHash eventType, VariantMap &eventData);
 
     void MoveCamera(float step);
+
+    CollisionChain2D *chain;
+    Node *geometry_;
 };
