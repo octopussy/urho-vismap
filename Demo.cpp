@@ -2,13 +2,23 @@
 // Created by octopussy on 10/12/2016.
 //
 
+#include <Urho3D/Core/CoreEvents.h>
 #include <Urho3D/Engine/Engine.h>
 #include <Urho3D/IO/FileSystem.h>
 #include <Urho3D/Input/Input.h>
 #include <Urho3D/Resource/ResourceCache.h>
+#include <Urho3D/Graphics/Camera.h>
+#include <Urho3D/Graphics/Graphics.h>
+#include <Urho3D/Graphics/Octree.h>
+#include <Urho3D/Graphics/Renderer.h>
 #include <Urho3D/UI/Font.h>
 #include <Urho3D/UI/Text.h>
 #include <Urho3D/UI/UI.h>
+#include <Urho3D/Scene/Scene.h>
+#include <Urho3D/Scene/SceneEvents.h>
+#include <Urho3D/Graphics/DebugRenderer.h>
+#include <Urho3D/Math/Vector2.h>
+#include <Urho3D/Math/Vector3.h>
 
 #include "Demo.h"
 
@@ -37,26 +47,105 @@ void Demo::Start() {
 
     CreateUI();
 
+    scene_ = new Scene(context_);
+
+    scene_->CreateComponent<Octree>();
+    debugRenderer_ = scene_->CreateComponent<DebugRenderer>();
+
+    cameraNode_ = scene_->CreateChild("Camera");
+    // Set camera's position
+    cameraNode_->SetPosition(Vector3(0.0f, 0.0f, -10.0f));
+
+    Camera *camera = cameraNode_->CreateComponent<Camera>();
+    camera->SetFarClip(100.0f);
+    camera->SetOrthographic(true);
+
+    Graphics *graphics = GetSubsystem<Graphics>();
+    camera->SetOrthoSize((float) 500);
+
+    Renderer *renderer = GetSubsystem<Renderer>();
+
+    // Set up a viewport to the Renderer subsystem so that the 3D scene can be seen
+    SharedPtr<Viewport> viewport(new Viewport(context_, scene_, cameraNode_->GetComponent<Camera>()));
+    renderer->SetViewport(0, viewport);
+
+    SubscribeToEvent(E_UPDATE, URHO3D_HANDLER(Demo, HandleUpdate));
+    SubscribeToEvent(E_RENDERUPDATE, URHO3D_HANDLER(Demo, Render));
+    SubscribeToEvent(E_POSTRENDERUPDATE, URHO3D_HANDLER(Demo, HandlePostRenderUpdate));
+    UnsubscribeFromEvent(E_SCENEUPDATE);
 }
 
-void Demo::CreateUI() const {
-    ResourceCache *cache = GetSubsystem();
+void Demo::CreateUI() {
+    ResourceCache *cache = GetSubsystem<ResourceCache>();
     // Construct new Text object
-    SharedPtr<Text> helloText(new Text(context_));
 
-    // Set String to display
-    helloText->SetText("Hello World from Urho3D!");
-
+    Text *text = new Text(context_);
+    debugText_ = text;
+    
     // Set font and text color
-    helloText->SetFont(cache->GetResource<Font>("Data/Fonts/BlueHighway.ttf"), 30);
-    helloText->SetColor(Color(0.0f, 1.0f, 0.0f));
+    debugText_->SetFont(cache->GetResource<Font>("Data/Fonts/BlueHighway.ttf"), 14);
+    debugText_->SetColor(Color(1.0f, 1.0f, 1.0f));
 
     // Align Text center-screen
-    helloText->SetHorizontalAlignment(HA_CENTER);
-    helloText->SetVerticalAlignment(VA_CENTER);
+    debugText_->SetHorizontalAlignment(HorizontalAlignment::HA_LEFT);
+    debugText_->SetVerticalAlignment(VerticalAlignment::VA_TOP);
 
     // Add Text instance to the UI root element
-    GetSubsystem()->GetRoot()->AddChild(helloText);
+    GetSubsystem<UI>()->GetRoot()->AddChild(debugText_);
 }
 
 
+void Demo::HandleUpdate(StringHash eventType, VariantMap &eventData) {
+    using namespace Update;
+
+    // Take the frame time step, which is stored as a float
+    float timeStep = eventData[P_TIMESTEP].GetFloat();
+
+    // Move the camera, scale movement with time step
+    MoveCamera(timeStep);
+    
+    String str;
+    const Vector2 &pos = cameraNode_->GetPosition2D();
+    str.AppendWithFormat("Pos: %f %f", roundf(pos.x_), roundf(pos.y_));
+    debugText_->SetText(str);
+}
+
+void Demo::Render(StringHash eventType, VariantMap &eventData) {
+}
+
+void Demo::HandlePostRenderUpdate(StringHash eventType, VariantMap &eventData) {
+    //debugRenderer_->SetView(cameraNode_->GetComponent<Camera>());
+    debugRenderer_->AddLine(Vector3(0, 0), Vector3(100, 100), Color::BLUE);
+    //debugRenderer_->Render();
+}
+
+void Demo::MoveCamera(float timeStep) {
+    // Do not move if the UI has a focused element (the console)
+    if (GetSubsystem<UI>()->GetFocusElement())
+        return;
+
+    Input *input = GetSubsystem<Input>();
+
+    // Movement speed as world units per second
+    const float MOVE_SPEED = 70.0f;
+
+    // Read WASD keys and move the camera scene node to the corresponding direction if they are pressed
+    if (input->GetKeyDown(KEY_W))
+        cameraNode_->Translate(Vector3::UP * MOVE_SPEED * timeStep);
+    if (input->GetKeyDown(KEY_S))
+        cameraNode_->Translate(Vector3::DOWN * MOVE_SPEED * timeStep);
+    if (input->GetKeyDown(KEY_A))
+        cameraNode_->Translate(Vector3::LEFT * MOVE_SPEED * timeStep);
+    if (input->GetKeyDown(KEY_D))
+        cameraNode_->Translate(Vector3::RIGHT * MOVE_SPEED * timeStep);
+
+    if (input->GetKeyDown(KEY_PAGEUP)) {
+        Camera *camera = cameraNode_->GetComponent<Camera>();
+        camera->SetZoom(camera->GetZoom() * 1.01f);
+    }
+
+    if (input->GetKeyDown(KEY_PAGEDOWN)) {
+        Camera *camera = cameraNode_->GetComponent<Camera>();
+        camera->SetZoom(camera->GetZoom() * 0.99f);
+    }
+}
