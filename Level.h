@@ -13,10 +13,12 @@ using namespace Urho3D;
 class Level {
     std::vector<PODVector<Vector2> > rawData;
 
+    Scene *scene_;
+
 public:
     Level();
 
-    void Init(class Scene *root);
+    void Init(class Scene *scene);
 
     virtual ~Level() {}
 
