@@ -11,4 +11,9 @@ public:
     Demo(Context* context);
 
     void Setup() override;
+
+    void Start() override;
+
+private:
+    void CreateUI() const;
 };
