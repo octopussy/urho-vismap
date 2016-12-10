@@ -2,8 +2,10 @@
 
 #include <Urho3D/Engine/Application.h>
 #include <Urho3D/UI/Text.h>
+#include "Level.h"
 
 using namespace Urho3D;
+
 class Demo : public Application {
     URHO3D_OBJECT(Demo, Application);
 
@@ -17,12 +19,14 @@ class Demo : public Application {
 
     SharedPtr<PhysicsWorld2D> b2world_;
 
+    Level* level_;
+
 public:
     Demo(Context* context);
 
-    void Setup() override;
+    virtual void Setup();
 
-    void Start() override;
+    virtual void Start();
 
 private:
     void CreateUI();
@@ -35,6 +39,5 @@ private:
 
     void MoveCamera(float step);
 
-    CollisionChain2D *chain;
-    Node *geometry_;
+    void CreateB2Geometry();
 };

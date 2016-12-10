@@ -1,7 +1,7 @@
 # Set project name
-project (SampleProject)
+project (TG_demo)
 # Define target name
-set (TARGET_NAME SampleProject)
+set (TARGET_NAME TG_demo)
 set (URHO3D_HOME "/Users/octopussy/dev/Urho3DBuild")
 
 ######################################

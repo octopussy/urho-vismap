@@ -24,7 +24,6 @@
 #include <Urho3D/Urho2D/CollisionChain2D.h>
 #include <Urho3D/Urho2D/CollisionBox2D.h>
 #include <Urho3D/Urho2D/PhysicsWorld2D.h>
-#include <Urho3D/Math/Vector2.h>
 
 #include "Demo.h"
 
@@ -47,39 +46,17 @@ void Demo::Start() {
     ResourceCache *cache = GetSubsystem<ResourceCache>();
     Input *input = GetSubsystem<Input>();
 
-    input->SetMouseMode(MouseMode::MM_ABSOLUTE);
+    input->SetMouseMode(MM_ABSOLUTE);
     input->SetMouseVisible(true);
 
     CreateUI();
 
     scene_ = new Scene(context_);
 
-    Octree* octree = scene_->CreateComponent<Octree>();
+    scene_->CreateComponent<Octree>();
     debugRenderer_ = scene_->CreateComponent<DebugRenderer>();
     b2world_ = scene_->CreateComponent<PhysicsWorld2D>();
-
-    geometry_ = scene_->CreateChild("Geometry");
-    geometry_->CreateComponent<RigidBody2D>();
-    chain = geometry_->CreateComponent<CollisionChain2D>();
-
-    CollisionBox2D *box = geometry_->CreateComponent<CollisionBox2D>();
-
-    box->SetSize(40, 40);
-    box->SetAngle(45);
-
-    PODVector<Vector2> vertices = PODVector<Vector2>();
-    vertices.Push(Vector2(0, 0));
-    vertices.Push(Vector2(50, 0));
-    vertices.Push(Vector2(50, 50));
-    vertices.Push(Vector2(100, 50));
-    chain->SetVertices(vertices);
-
-    Sprite2D* boxSprite = cache->GetResource<Sprite2D>("Urho2D/Box.png");
-
     cameraNode_ = scene_->CreateChild("Camera");
-    // Set camera's position
-    cameraNode_->SetPosition(Vector3(0.0f, 0.0f, -10.0f));
-
     Camera *camera = cameraNode_->CreateComponent<Camera>();
     camera->SetFarClip(100.0f);
     camera->SetOrthographic(true);
@@ -87,14 +64,20 @@ void Demo::Start() {
 
     Renderer *renderer = GetSubsystem<Renderer>();
 
-    // Set up a viewport to the Renderer subsystem so that the 3D scene can be seen
     SharedPtr<Viewport> viewport(new Viewport(context_, scene_, cameraNode_->GetComponent<Camera>()));
     renderer->SetViewport(0, viewport);
+
+    CreateB2Geometry();
 
     SubscribeToEvent(E_UPDATE, URHO3D_HANDLER(Demo, HandleUpdate));
     SubscribeToEvent(E_RENDERUPDATE, URHO3D_HANDLER(Demo, Render));
     SubscribeToEvent(E_POSTRENDERUPDATE, URHO3D_HANDLER(Demo, HandlePostRenderUpdate));
     UnsubscribeFromEvent(E_SCENEUPDATE);
+}
+
+void Demo::CreateB2Geometry() {
+    level_ = new Level();
+    level_->Init(scene_);
 }
 
 void Demo::CreateUI() {
@@ -103,19 +86,18 @@ void Demo::CreateUI() {
 
     Text *text = new Text(context_);
     debugText_ = text;
-    
+
     // Set font and text color
     debugText_->SetFont(cache->GetResource<Font>("Data/Fonts/BlueHighway.ttf"), 14);
     debugText_->SetColor(Color(1.0f, 1.0f, 1.0f));
 
     // Align Text center-screen
-    debugText_->SetHorizontalAlignment(HorizontalAlignment::HA_LEFT);
-    debugText_->SetVerticalAlignment(VerticalAlignment::VA_TOP);
+    debugText_->SetHorizontalAlignment(HA_LEFT);
+    debugText_->SetVerticalAlignment(VA_TOP);
 
     // Add Text instance to the UI root element
     GetSubsystem<UI>()->GetRoot()->AddChild(debugText_);
 }
-
 
 void Demo::HandleUpdate(StringHash eventType, VariantMap &eventData) {
     using namespace Update;
@@ -127,7 +109,7 @@ void Demo::HandleUpdate(StringHash eventType, VariantMap &eventData) {
 
     // Move the camera, scale movement with time step
     MoveCamera(timeStep);
-    
+
     String str;
     const Vector2 &pos = cameraNode_->GetPosition2D();
     str.AppendWithFormat("Pos: %f %f", roundf(pos.x_), roundf(pos.y_));
@@ -145,12 +127,16 @@ void Demo::HandlePostRenderUpdate(StringHash eventType, VariantMap &eventData) {
     phWorld->SetDrawShape(true);
     phWorld->DrawDebugGeometry();
 
+    const Vector2 &camPosition = cameraNode_->GetPosition2D();
+
     PhysicsRaycastResult2D result;
-    phWorld->RaycastSingle(result, cameraNode_->GetPosition2D(), cameraNode_->GetPosition2D() + Vector2(-1000, 0));
+    phWorld->RaycastSingle(result, camPosition, camPosition + Vector2(-1000, 0));
 
     if (result.body_ != nullptr) {
-        debugRenderer_->AddLine(cameraNode_->GetPosition2D(), result.position_, Color::BLUE);
+        debugRenderer_->AddLine(camPosition, result.position_, Color::BLUE);
     }
+
+    debugRenderer_->AddCircle(camPosition, Vector3::FORWARD, 5.0f, Color::MAGENTA);
     //chain->DrawDebugGeometry(debugRenderer_, false);
     //debugRenderer_->AddLine(Vector3(0, 0), Vector3(100, 100), Color::BLUE);
 }
@@ -163,7 +149,7 @@ void Demo::MoveCamera(float timeStep) {
     Input *input = GetSubsystem<Input>();
 
     // Movement speed as world units per second
-    const float MOVE_SPEED = 70.0f;
+    const float MOVE_SPEED = 150.0f;
 
     // Read WASD keys and move the camera scene node to the corresponding direction if they are pressed
     if (input->GetKeyDown(KEY_W))
