@@ -11,9 +11,14 @@
 #include <Urho3D/Graphics/Graphics.h>
 #include <Urho3D/Graphics/Octree.h>
 #include <Urho3D/Graphics/Renderer.h>
+#include <Urho3D/Graphics/Model.h>
+#include <Urho3D/Graphics/Octree.h>
+#include <Urho3D/Graphics/Renderer.h>
+#include <Urho3D/Graphics/StaticModel.h>
 #include <Urho3D/UI/Font.h>
 #include <Urho3D/UI/Text.h>
 #include <Urho3D/UI/UI.h>
+
 #include <Urho3D/Scene/Scene.h>
 #include <Urho3D/Scene/SceneEvents.h>
 #include <Urho3D/Graphics/DebugRenderer.h>
@@ -57,10 +62,16 @@ void Demo::Start() {
     debugRenderer_ = scene_->CreateComponent<DebugRenderer>();
     b2world_ = scene_->CreateComponent<PhysicsWorld2D>();
     cameraNode_ = scene_->CreateChild("Camera");
+    cameraNode_->SetPosition(Vector3(0, 0, -10));
     Camera *camera = cameraNode_->CreateComponent<Camera>();
     camera->SetFarClip(100.0f);
     camera->SetOrthographic(true);
     camera->SetOrthoSize((float) 500);
+
+    Node* lightNode = scene_->CreateChild("DirectionalLight");
+    lightNode->SetDirection(Vector3(0.6f, -1.0f, 0.8f)); // The direction vector does not need to be normalized
+    Light* light = lightNode->CreateComponent<Light>();
+    light->SetLightType(LIGHT_DIRECTIONAL);
 
     Renderer *renderer = GetSubsystem<Renderer>();
 
@@ -72,12 +83,20 @@ void Demo::Start() {
     SubscribeToEvent(E_UPDATE, URHO3D_HANDLER(Demo, HandleUpdate));
     SubscribeToEvent(E_RENDERUPDATE, URHO3D_HANDLER(Demo, Render));
     SubscribeToEvent(E_POSTRENDERUPDATE, URHO3D_HANDLER(Demo, HandlePostRenderUpdate));
-    UnsubscribeFromEvent(E_SCENEUPDATE);
+ //   UnsubscribeFromEvent(E_SCENEUPDATE);
+
+    //Texture2D* decalTex = cache->GetResource<Texture2D>("Textures/UrhoDecal.dds");
+
+    /*Node* planeNode = scene_->CreateChild("Plane");
+    planeNode->SetScale(Vector3(100.0f, 1.0f, 100.0f));
+    StaticModel* planeObject = planeNode->CreateComponent<StaticModel>();
+    planeObject->SetModel(cache->GetResource<Model>("Models/Plane.mdl"));
+    planeObject->SetMaterial(cache->GetResource<Material>("Materials/StoneTiled.xml"));*/
 }
 
 void Demo::CreateB2Geometry() {
     level_ = new Level();
-    level_->Init(scene_);
+    level_->Init(context_, scene_);
 }
 
 void Demo::CreateUI() {
@@ -117,7 +136,7 @@ void Demo::HandleUpdate(StringHash eventType, VariantMap &eventData) {
 }
 
 void Demo::Render(StringHash eventType, VariantMap &eventData) {
-
+    Graphics *graphics = GetSubsystem<Graphics>();
 }
 
 void Demo::HandlePostRenderUpdate(StringHash eventType, VariantMap &eventData) {
@@ -132,9 +151,11 @@ void Demo::HandlePostRenderUpdate(StringHash eventType, VariantMap &eventData) {
     std::vector<Vector2> points;
     level_->GetVisPoints(camPosition, points);
 
-    for (int i = 0; i < points.size(); ++i) {
+    /*for (int i = 0; i < points.size(); ++i) {
         debugRenderer_->AddLine(camPosition, points[i], Color::BLUE);
-    }
+    }*/
+
+    level_->PostRender(debugRenderer_);
 
     //PhysicsRaycastResult2D result;
     //phWorld->RaycastSingle(result, camPosition, camPosition + Vector2(-1000, 0));

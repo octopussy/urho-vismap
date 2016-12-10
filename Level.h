@@ -13,16 +13,24 @@ using namespace Urho3D;
 class Level {
     std::vector<PODVector<Vector2> > rawData;
 
+    Context *context_;
+
     Scene *scene_;
+
+    class CustomGeometry *visMapGeometry;
+
+    SharedPtr<Material> renderMaterial;
 
 public:
     Level();
 
-    void Init(class Scene *scene);
+    void Init(class Context* context, class Scene *scene);
 
     virtual ~Level() {}
 
     void GetVisPoints(const Vector2 &vector2, std::vector<Vector2>& out);
+
+    void PostRender(DebugRenderer *debugRenderer);
 
 private:
 
