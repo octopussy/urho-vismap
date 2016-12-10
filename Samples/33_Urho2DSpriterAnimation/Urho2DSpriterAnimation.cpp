@@ -20,7 +20,6 @@
 // THE SOFTWARE.
 //
 
-
 #include <Urho3D/Core/CoreEvents.h>
 #include <Urho3D/Engine/Engine.h>
 #include <Urho3D/Graphics/Camera.h>
@@ -35,28 +34,20 @@
 #include <Urho3D/UI/Text.h>
 #include <Urho3D/Urho2D/AnimatedSprite2D.h>
 #include <Urho3D/Urho2D/AnimationSet2D.h>
-#include <Urho3D/Urho2D/Sprite2D.h>
 
-#include "Urho2DSprite.h"
+#include "Urho2DSpriterAnimation.h"
 
 #include <Urho3D/DebugNew.h>
 
-// Number of static sprites to draw
-static const unsigned NUM_SPRITES = 200;
-static const StringHash VAR_MOVESPEED("MoveSpeed");
-static const StringHash VAR_ROTATESPEED("RotateSpeed");
+URHO3D_DEFINE_APPLICATION_MAIN(Urho2DSpriterAnimation)
 
-URHO3D_DEFINE_APPLICATION_MAIN(Urho2DSprite)
-
-void dsads();
-
-Urho2DSprite::Urho2DSprite(Context* context) :
-    Sample(context)
+Urho2DSpriterAnimation::Urho2DSpriterAnimation(Context* context) :
+    Sample(context),
+    spriterAnimationIndex_(0)
 {
-    dsads();
 }
 
-void Urho2DSprite::Start()
+void Urho2DSpriterAnimation::Start()
 {
     // Execute base class startup
     Sample::Start();
@@ -70,14 +61,14 @@ void Urho2DSprite::Start()
     // Setup the viewport for displaying the scene
     SetupViewport();
 
-    // Hook up to the frame update events
-    SubscribeToEvents();
-
     // Set the mouse mode to use in the sample
     Sample::InitMouseMode(MM_FREE);
+
+    // Hook up to the frame update events
+    SubscribeToEvents();
 }
 
-void Urho2DSprite::CreateScene()
+void Urho2DSpriterAnimation::CreateScene()
 {
     scene_ = new Scene(context_);
     scene_->CreateComponent<Octree>();
@@ -92,61 +83,29 @@ void Urho2DSprite::CreateScene()
 
     Graphics* graphics = GetSubsystem<Graphics>();
     camera->SetOrthoSize((float)graphics->GetHeight() * PIXEL_SIZE);
+    camera->SetZoom(1.5f * Min((float)graphics->GetWidth() / 1280.0f, (float)graphics->GetHeight() / 800.0f)); // Set zoom according to user's resolution to ensure full visibility (initial zoom (1.5) is set for full visibility at 1280x800 resolution)
 
     ResourceCache* cache = GetSubsystem<ResourceCache>();
-    // Get sprite
-    Sprite2D* sprite = cache->GetResource<Sprite2D>("Urho2D/Aster.png");
-    if (!sprite)
+    AnimationSet2D* spriterAnimationSet = cache->GetResource<AnimationSet2D>("Urho2D/imp/imp.scml");
+    if (!spriterAnimationSet)
         return;
 
-    float halfWidth = graphics->GetWidth() * 0.5f * PIXEL_SIZE;
-    float halfHeight = graphics->GetHeight() * 0.5f * PIXEL_SIZE;
-
-    for (unsigned i = 0; i < NUM_SPRITES; ++i)
-    {
-        SharedPtr<Node> spriteNode(scene_->CreateChild("StaticSprite2D"));
-        spriteNode->SetPosition(Vector3(Random(-halfWidth, halfWidth), Random(-halfHeight, halfHeight), 0.0f));
-
-        StaticSprite2D* staticSprite = spriteNode->CreateComponent<StaticSprite2D>();
-        // Set random color
-        staticSprite->SetColor(Color(Random(1.0f), Random(1.0f), Random(1.0f), 1.0f));
-        // Set blend mode
-        staticSprite->SetBlendMode(BLEND_ALPHA);
-        // Set sprite
-        staticSprite->SetSprite(sprite);
-
-        // Set move speed
-        spriteNode->SetVar(VAR_MOVESPEED, Vector3(Random(-2.0f, 2.0f), Random(-2.0f, 2.0f), 0.0f));
-        // Set rotate speed
-        spriteNode->SetVar(VAR_ROTATESPEED, Random(-90.0f, 90.0f));
-
-        // Add to sprite node vector
-        spriteNodes_.Push(spriteNode);
-    }
-
-    // Get animation set
-    AnimationSet2D* animationSet = cache->GetResource<AnimationSet2D>("Urho2D/GoldIcon.scml");
-    if (!animationSet)
-        return;
-
-    SharedPtr<Node> spriteNode(scene_->CreateChild("AnimatedSprite2D"));
-    spriteNode->SetPosition(Vector3(0.0f, 0.0f, -1.0f));
-
-    AnimatedSprite2D* animatedSprite = spriteNode->CreateComponent<AnimatedSprite2D>();
-    // Set animation
-    animatedSprite->SetAnimationSet(animationSet);
-    animatedSprite->SetAnimation("idle");
+    spriterNode_ = scene_->CreateChild("SpriterAnimation");
+    AnimatedSprite2D* spriterAnimatedSprite = spriterNode_->CreateComponent<AnimatedSprite2D>();
+    spriterAnimatedSprite->SetAnimationSet(spriterAnimationSet);
+    spriterAnimatedSprite->SetAnimation(spriterAnimationSet->GetAnimation(spriterAnimationIndex_));
 }
 
-void Urho2DSprite::CreateInstructions()
+void Urho2DSpriterAnimation::CreateInstructions()
 {
     ResourceCache* cache = GetSubsystem<ResourceCache>();
     UI* ui = GetSubsystem<UI>();
 
     // Construct new Text object, set string to display and font to use
     Text* instructionText = ui->GetRoot()->CreateChild<Text>();
-    instructionText->SetText("Use WASD keys to move, use PageUp PageDown keys to zoom.");
+    instructionText->SetText("Mouse click to play next animation, \nUse WASD keys to move, use PageUp PageDown keys to zoom.");
     instructionText->SetFont(cache->GetResource<Font>("Fonts/Anonymous Pro.ttf"), 15);
+    instructionText->SetTextAlignment(HA_CENTER); // Center rows in relation to each other
 
     // Position the text relative to the screen center
     instructionText->SetHorizontalAlignment(HA_CENTER);
@@ -154,7 +113,7 @@ void Urho2DSprite::CreateInstructions()
     instructionText->SetPosition(0, ui->GetRoot()->GetHeight() / 4);
 }
 
-void Urho2DSprite::SetupViewport()
+void Urho2DSpriterAnimation::SetupViewport()
 {
     Renderer* renderer = GetSubsystem<Renderer>();
 
@@ -163,7 +122,7 @@ void Urho2DSprite::SetupViewport()
     renderer->SetViewport(0, viewport);
 }
 
-void Urho2DSprite::MoveCamera(float timeStep)
+void Urho2DSpriterAnimation::MoveCamera(float timeStep)
 {
     // Do not move if the UI has a focused element (the console)
     if (GetSubsystem<UI>()->GetFocusElement())
@@ -197,16 +156,17 @@ void Urho2DSprite::MoveCamera(float timeStep)
     }
 }
 
-void Urho2DSprite::SubscribeToEvents()
+void Urho2DSpriterAnimation::SubscribeToEvents()
 {
     // Subscribe HandleUpdate() function for processing update events
-    SubscribeToEvent(E_UPDATE, URHO3D_HANDLER(Urho2DSprite, HandleUpdate));
+    SubscribeToEvent(E_UPDATE, URHO3D_HANDLER(Urho2DSpriterAnimation, HandleUpdate));
+    SubscribeToEvent(E_MOUSEBUTTONDOWN, URHO3D_HANDLER(Urho2DSpriterAnimation, HandleMouseButtonDown));
 
     // Unsubscribe the SceneUpdate event from base class to prevent camera pitch and yaw in 2D sample
     UnsubscribeFromEvent(E_SCENEUPDATE);
 }
 
-void Urho2DSprite::HandleUpdate(StringHash eventType, VariantMap& eventData)
+void Urho2DSpriterAnimation::HandleUpdate(StringHash eventType, VariantMap& eventData)
 {
     using namespace Update;
 
@@ -215,34 +175,12 @@ void Urho2DSprite::HandleUpdate(StringHash eventType, VariantMap& eventData)
 
     // Move the camera, scale movement with time step
     MoveCamera(timeStep);
+}
 
-    Graphics* graphics = GetSubsystem<Graphics>();
-    float halfWidth = (float)graphics->GetWidth() * 0.5f * PIXEL_SIZE;
-    float halfHeight = (float)graphics->GetHeight() * 0.5f * PIXEL_SIZE;
-
-    for (unsigned i = 0; i < spriteNodes_.Size(); ++i)
-    {
-        SharedPtr<Node> node = spriteNodes_[i];
-
-        Vector3 position = node->GetPosition();
-        Vector3 moveSpeed = node->GetVar(VAR_MOVESPEED).GetVector3();
-        Vector3 newPosition = position + moveSpeed * timeStep;
-        if (newPosition.x_ < -halfWidth || newPosition.x_ > halfWidth)
-        {
-            newPosition.x_ = position.x_;
-            moveSpeed.x_ = -moveSpeed.x_;
-            node->SetVar(VAR_MOVESPEED, moveSpeed);
-        }
-        if (newPosition.y_ < -halfHeight || newPosition.y_ > halfHeight)
-        {
-            newPosition.y_ = position.y_;
-            moveSpeed.y_ = -moveSpeed.y_;
-            node->SetVar(VAR_MOVESPEED, moveSpeed);
-        }
-
-        node->SetPosition(newPosition);
-
-        float rotateSpeed = node->GetVar(VAR_ROTATESPEED).GetFloat();
-        node->Roll(rotateSpeed * timeStep);
-    }
+void Urho2DSpriterAnimation::HandleMouseButtonDown(StringHash eventType, VariantMap& eventData)
+{
+    AnimatedSprite2D* spriterAnimatedSprite = spriterNode_->GetComponent<AnimatedSprite2D>();
+    AnimationSet2D* spriterAnimationSet = spriterAnimatedSprite->GetAnimationSet();
+    spriterAnimationIndex_ = (spriterAnimationIndex_ + 1) % spriterAnimationSet->GetNumAnimations();
+    spriterAnimatedSprite->SetAnimation(spriterAnimationSet->GetAnimation(spriterAnimationIndex_), LM_FORCE_LOOPED);
 }
