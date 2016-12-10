@@ -153,20 +153,11 @@ void Demo::HandlePostRenderUpdate(StringHash eventType, VariantMap &eventData) {
 
     /*for (int i = 0; i < points.size(); ++i) {
         debugRenderer_->AddLine(camPosition, points[i], Color::BLUE);
-    }*/
-
+    }
+*/
     level_->PostRender(debugRenderer_);
 
-    //PhysicsRaycastResult2D result;
-    //phWorld->RaycastSingle(result, camPosition, camPosition + Vector2(-1000, 0));
-
-    //if (result.body_ != nullptr) {
-    //    debugRenderer_->AddLine(camPosition, result.position_, Color::BLUE);
-    //}
-
     debugRenderer_->AddCircle(camPosition, Vector3::FORWARD, 5.0f, Color::MAGENTA);
-    //chain->DrawDebugGeometry(debugRenderer_, false);
-    //debugRenderer_->AddLine(Vector3(0, 0), Vector3(100, 100), Color::BLUE);
 }
 
 void Demo::MoveCamera(float timeStep) {

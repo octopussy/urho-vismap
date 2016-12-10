@@ -3,6 +3,7 @@
 #include "Transform.glsl"
 
 uniform vec2 cCenterPos;
+uniform float cVisMapShift;
 
 void VS()
 {
@@ -11,8 +12,8 @@ void VS()
         vec3 worldPos = GetWorldPos(modelMatrix);
 
         vec2 dir = normalize(vec2(worldPos) - cCenterPos);
-        worldPos.x = worldPos.x + dir.x * 10;
-        worldPos.y = worldPos.y + dir.y * 10;
+        worldPos.x = worldPos.x + dir.x * cVisMapShift;
+        worldPos.y = worldPos.y + dir.y * cVisMapShift;
         worldPos.z = 0;
 
         gl_Position = GetClipPos(worldPos);

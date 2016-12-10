@@ -15,13 +15,13 @@
 Level::Level() {
 }
 
-void Level::Init(Context* context, class Scene *scene) {
+void Level::Init(Context *context, class Scene *scene) {
     context_ = context;
     scene_ = scene;
 
-    Node* lightNode = scene_->CreateChild("DirectionalLight");
+    Node *lightNode = scene_->CreateChild("DirectionalLight");
     lightNode->SetDirection(Vector3(0.0, 0.0f, -0.8f)); // The direction vector does not need to be normalized
-    Light* light = lightNode->CreateComponent<Light>();
+    Light *light = lightNode->CreateComponent<Light>();
     light->SetLightType(LIGHT_DIRECTIONAL);
 
     InitRawData();
@@ -39,7 +39,7 @@ void Level::Init(Context* context, class Scene *scene) {
     visMapGeometry = visMap->CreateComponent<CustomGeometry>();
     visMapGeometry->SetDynamic(true);
 
-    ResourceCache* cache = scene_->GetSubsystem<ResourceCache>();
+    ResourceCache *cache = scene_->GetSubsystem<ResourceCache>();
     renderMaterial = new Material(context_);
     renderMaterial->SetTechnique(0, cache->GetResource<Technique>("Techniques/VisMap.xml"));
     renderMaterial->SetCullMode(CullMode::CULL_NONE);
@@ -99,11 +99,12 @@ void Level::GetVisPoints(const Vector2 &center, std::vector<Vector2> &out) {
 
     PhysicsRaycastResult2D resultRight, result, resultLeft;
 
-    const float MAX_DISTANCE = 1000.f;
-    const float ANGLE_BIAS = 0.001f;
-    const float DISTANCE_EPSILON = 2.5f;
+    const float MAX_DISTANCE = 10000.f;
+    const float ANGLE_BIAS = 0.0001f;
+    const float DISTANCE_EPSILON = 0.5f;
 
     renderMaterial->SetShaderParameter("CenterPos", center);
+    renderMaterial->SetShaderParameter("VisMapShift", 10.0f);
 
     for (int i = 0; i < points.size(); ++i) {
         Vector2 point = points[i];
@@ -116,27 +117,20 @@ void Level::GetVisPoints(const Vector2 &center, std::vector<Vector2> &out) {
         phWorld->RaycastSingle(resultRight, center, center + rotatedVectorRad(dirToPoint, -ANGLE_BIAS) * MAX_DISTANCE);
         phWorld->RaycastSingle(resultLeft, center, center + rotatedVectorRad(dirToPoint, ANGLE_BIAS) * MAX_DISTANCE);
 
-        if (resultRight.body_ != nullptr && resultRight.distance_ > distanceToPoint + DISTANCE_EPSILON) {
+        bool addMiddlePoint = result.distance_ >= distanceToPoint || result.body_ == NULL;
+        bool addRightPoint = resultRight.distance_ >= distanceToPoint - DISTANCE_EPSILON;
+        bool addLeftPoint = resultLeft.distance_ >= distanceToPoint - DISTANCE_EPSILON;
+
+        if (addRightPoint) {
             out.push_back(resultRight.position_);
         }
 
-        // иногда, результат трассировки конктретно в точку "point" возвращает пустой результат... не понятно почему
-        // возможно из-за особенностей CollisionChain2D, луч какбы проскакивает междуотрезками. Этого наверно не случится,
-        // если использовать классические шейпы, типа box, circle или convex-лабуда. Ну или использовать свои алгоритмы
-        // кастинга и забить на box2d
-        if (resultRight.body_ != nullptr && fabs(resultRight.distance_ - distanceToPoint) <= DISTANCE_EPSILON
-            || result.body_ != nullptr && fabs(result.distance_ - distanceToPoint) <= DISTANCE_EPSILON
-            || resultLeft.body_ != nullptr && fabs(resultLeft.distance_ - distanceToPoint) <= DISTANCE_EPSILON) {
-            out.push_back(point);
-        }
-
-        if (resultLeft.body_ != nullptr && resultLeft.distance_ > distanceToPoint + DISTANCE_EPSILON) {
+        if (addLeftPoint) {
             out.push_back(resultLeft.position_);
         }
-
     }
 
-    ResourceCache* cache = scene_->GetSubsystem<ResourceCache>();
+    ResourceCache *cache = scene_->GetSubsystem<ResourceCache>();
     visMapGeometry->BeginGeometry(0, TRIANGLE_FAN);
     visMapGeometry->SetDynamic(true);
     visMapGeometry->DefineVertex(center);
@@ -144,7 +138,7 @@ void Level::GetVisPoints(const Vector2 &center, std::vector<Vector2> &out) {
 
     for (int i = 0; i < out.size(); ++i) {
         visMapGeometry->DefineVertex(out.at((unsigned long) i));
-       // visMapGeometry->DefineTexCoord(Vector2::ZERO);
+        // visMapGeometry->DefineTexCoord(Vector2::ZERO);
         //visMapGeometry->DefineColor(Color::CYAN);
     }
 
@@ -158,6 +152,6 @@ void Level::GetVisPoints(const Vector2 &center, std::vector<Vector2> &out) {
 */
 }
 
-void Level::PostRender(DebugRenderer* debugRenderer) {
+void Level::PostRender(DebugRenderer *debugRenderer) {
     //visMapGeometry->DrawDebugGeometry(debugRenderer, false);
 }
