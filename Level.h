@@ -15,16 +15,20 @@ class Level {
 
     Context *context_;
 
-    Scene *scene_;
+    Scene *rttScene_;
 
-    class CustomGeometry *visMapGeometry;
+    class CustomGeometry *visMapGeometry_;
 
-    SharedPtr<Material> renderMaterial;
+   // class CustomGeometry *pass2Geometry_;
+
+    SharedPtr<Material> pass1Material_;
+
+    SharedPtr<PhysicsWorld2D> b2world_;
 
 public:
     Level();
 
-    void Init(class Context* context, class Scene *scene);
+    void Init(class Context* context, class Viewport* viewport, class Scene* mainScene, class Camera *camera);
 
     virtual ~Level() {}
 

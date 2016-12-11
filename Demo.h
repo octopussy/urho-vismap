@@ -9,15 +9,13 @@ using namespace Urho3D;
 class Demo : public Application {
     URHO3D_OBJECT(Demo, Application);
 
-    SharedPtr<Scene> scene_;
+    SharedPtr<Scene> mainScene_;
 
     SharedPtr<DebugRenderer> debugRenderer_;
 
     SharedPtr<Node> cameraNode_;
 
     SharedPtr<Text> debugText_;
-
-    SharedPtr<PhysicsWorld2D> b2world_;
 
     Level* level_;
 

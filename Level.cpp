@@ -1,32 +1,31 @@
-//
-// Created by octopussy on 10/12/2016.
-//
-
 #include <Urho3D/Scene/Scene.h>
 #include <Urho3D/Urho2D/RigidBody2D.h>
 #include <Urho3D/Urho2D/CollisionChain2D.h>
 #include <Urho3D/Graphics/Material.h>
+#include <Urho3D/Graphics/RenderPath.h>
+#include <Urho3D/Graphics/Texture2D.h>
 #include <Urho3D/Graphics/CustomGeometry.h>
 #include <Urho3D/Graphics/Technique.h>
 #include <Urho3D/Urho2D/PhysicsWorld2D.h>
 #include <Urho3D/Resource/ResourceCache.h>
+#include <Urho3D/Resource/XMLFile.h>
+#include <Urho3D/Graphics/Graphics.h>
+#include <Urho3D/Graphics/Octree.h>
+#include <Urho3D/Graphics/Renderer.h>
 #include "Level.h"
 
 Level::Level() {
 }
 
-void Level::Init(Context *context, class Scene *scene) {
+void Level::Init(Context *context, Viewport* viewport, Scene *mainScene, Camera *camera) {
     context_ = context;
-    scene_ = scene;
-
-    Node *lightNode = scene_->CreateChild("DirectionalLight");
-    lightNode->SetDirection(Vector3(0.0, 0.0f, -0.8f)); // The direction vector does not need to be normalized
-    Light *light = lightNode->CreateComponent<Light>();
-    light->SetLightType(LIGHT_DIRECTIONAL);
+    rttScene_ = new Scene(context);
+    rttScene_->CreateComponent<Octree>();
+    b2world_ = rttScene_->CreateComponent<PhysicsWorld2D>();
 
     InitRawData();
 
-    Node *b2geometry = scene->CreateChild("b2Geometry");
+    Node *b2geometry = rttScene_->CreateChild("b2Geometry");
 
     for (int i = 0; i < rawData.size(); ++i) {
         b2geometry->CreateComponent<RigidBody2D>();
@@ -35,15 +34,36 @@ void Level::Init(Context *context, class Scene *scene) {
         chain->SetLoop(true);
     }
 
-    Node *visMap = scene->CreateChild("VisMap");
-    visMapGeometry = visMap->CreateComponent<CustomGeometry>();
-    visMapGeometry->SetDynamic(true);
+    ResourceCache *cache = rttScene_->GetSubsystem<ResourceCache>();
+    pass1Material_ = new Material(context_);
+    pass1Material_->SetTechnique(0, cache->GetResource<Technique>("Techniques/VisMap.xml"));
+    pass1Material_->SetCullMode(CULL_NONE);
 
-    ResourceCache *cache = scene_->GetSubsystem<ResourceCache>();
-    renderMaterial = new Material(context_);
-    renderMaterial->SetTechnique(0, cache->GetResource<Technique>("Techniques/VisMap.xml"));
-    renderMaterial->SetCullMode(CullMode::CULL_NONE);
-    visMapGeometry->SetMaterial(renderMaterial);
+    Node *rttVisGeom = rttScene_->CreateChild("rttVisGeometry");
+    visMapGeometry_ = rttVisGeom->CreateComponent<CustomGeometry>();
+    visMapGeometry_->SetDynamic(true);
+    visMapGeometry_->SetMaterial(pass1Material_);
+
+    SharedPtr<Texture2D> renderTexture(new Texture2D(context_));
+    renderTexture->SetName("RTVisMap");
+    cache->AddManualResource(renderTexture);
+
+    renderTexture->SetSize(1024, 768, Graphics::GetRGBFormat(), TEXTURE_RENDERTARGET);
+    renderTexture->SetFilterMode(FILTER_BILINEAR);
+
+    RenderSurface *surface = renderTexture->GetRenderSurface();
+    surface->SetUpdateMode(SURFACE_UPDATEALWAYS);
+
+    SharedPtr<Viewport> rttViewport(new Viewport(context_, rttScene_, camera));
+    surface->SetViewport(0, rttViewport);
+
+    Renderer *renderer = rttScene_->GetSubsystem<Renderer>();
+    //renderer->SetViewport(0, rttViewport);
+
+    SharedPtr<RenderPath> effectRenderPath = viewport->GetRenderPath()->Clone();
+    effectRenderPath->Append(cache->GetResource<XMLFile>("PostProcess/VisMap.xml"));
+
+    viewport->SetRenderPath(effectRenderPath);
 }
 
 float angle(double x, double y) {
@@ -84,7 +104,7 @@ Vector2 rotatedVectorRad(const Vector2 &v, float radians) {
 void Level::GetVisPoints(const Vector2 &center, std::vector<Vector2> &out) {
     std::vector<Vector2> points;
 
-    PhysicsWorld2D *phWorld = scene_->GetComponent<PhysicsWorld2D>();
+    PhysicsWorld2D *phWorld = rttScene_->GetComponent<PhysicsWorld2D>();
 
     for (int i = 0; i < rawData.size(); ++i) {
         PODVector<Vector2> &v = rawData[i];
@@ -99,12 +119,12 @@ void Level::GetVisPoints(const Vector2 &center, std::vector<Vector2> &out) {
 
     PhysicsRaycastResult2D resultRight, result, resultLeft;
 
-    const float MAX_DISTANCE = 10000.f;
-    const float ANGLE_BIAS = 0.0001f;
+    const float MAX_DISTANCE = 1000.f;
+    const float ANGLE_BIAS = 0.00001f;
     const float DISTANCE_EPSILON = 0.5f;
 
-    renderMaterial->SetShaderParameter("CenterPos", center);
-    renderMaterial->SetShaderParameter("VisMapShift", 10.0f);
+    pass1Material_->SetShaderParameter("CenterPos", center);
+    pass1Material_->SetShaderParameter("VisMapShift", 10.0f);
 
     for (int i = 0; i < points.size(); ++i) {
         Vector2 point = points[i];
@@ -113,11 +133,9 @@ void Level::GetVisPoints(const Vector2 &center, std::vector<Vector2> &out) {
 
         dirToPoint.Normalize();
 
-        phWorld->RaycastSingle(result, center, center + dirToPoint * MAX_DISTANCE, M_MAX_UNSIGNED);
         phWorld->RaycastSingle(resultRight, center, center + rotatedVectorRad(dirToPoint, -ANGLE_BIAS) * MAX_DISTANCE);
         phWorld->RaycastSingle(resultLeft, center, center + rotatedVectorRad(dirToPoint, ANGLE_BIAS) * MAX_DISTANCE);
 
-        bool addMiddlePoint = result.distance_ >= distanceToPoint || result.body_ == NULL;
         bool addRightPoint = resultRight.distance_ >= distanceToPoint - DISTANCE_EPSILON;
         bool addLeftPoint = resultLeft.distance_ >= distanceToPoint - DISTANCE_EPSILON;
 
@@ -130,28 +148,30 @@ void Level::GetVisPoints(const Vector2 &center, std::vector<Vector2> &out) {
         }
     }
 
-    ResourceCache *cache = scene_->GetSubsystem<ResourceCache>();
-    visMapGeometry->BeginGeometry(0, TRIANGLE_FAN);
-    visMapGeometry->SetDynamic(true);
-    visMapGeometry->DefineVertex(center);
+
+    ResourceCache *cache = rttScene_->GetSubsystem<ResourceCache>();
+    visMapGeometry_->BeginGeometry(0, TRIANGLE_FAN);
+    visMapGeometry_->SetDynamic(true);
+    visMapGeometry_->DefineVertex(center);
     //visMapGeometry->DefineColor(Color::CYAN);
 
     for (int i = 0; i < out.size(); ++i) {
-        visMapGeometry->DefineVertex(out.at((unsigned long) i));
+        visMapGeometry_->DefineVertex(out.at((unsigned long) i));
         // visMapGeometry->DefineTexCoord(Vector2::ZERO);
         //visMapGeometry->DefineColor(Color::CYAN);
     }
 
-    visMapGeometry->DefineVertex(out.front());
+    if (out.size() > 0) {
+        visMapGeometry_->DefineVertex(out.front());
+    }
 
-    visMapGeometry->Commit();
-/*
-        for (unsigned long i = 0; i < out.size(); ++i) {
-            URHO3D_LOGRAWF("%f\n", angle(out.at(i) - center));
-        }
-*/
+    visMapGeometry_->Commit();
 }
 
 void Level::PostRender(DebugRenderer *debugRenderer) {
+    b2world_->SetDrawShape(true);
+    b2world_->DrawDebugGeometry();
+
+    Graphics *graphics = rttScene_->GetSubsystem<Graphics>();
     //visMapGeometry->DrawDebugGeometry(debugRenderer, false);
 }

@@ -9,21 +9,20 @@ void VS()
 {
 
     mat4 modelMatrix = iModelMatrix;
-        vec3 worldPos = GetWorldPos(modelMatrix);
+    vec3 worldPos = GetWorldPos(modelMatrix);
 
-        vec2 dir = normalize(vec2(worldPos) - cCenterPos);
-        worldPos.x = worldPos.x + dir.x * cVisMapShift;
-        worldPos.y = worldPos.y + dir.y * cVisMapShift;
-        worldPos.z = 0;
+    vec2 dir = normalize(vec2(worldPos) - cCenterPos);
+    worldPos.x = worldPos.x + dir.x * cVisMapShift;
+    worldPos.y = worldPos.y + dir.y * cVisMapShift;
+    worldPos.z = 0;
 
-        gl_Position = GetClipPos(worldPos);
-        gl_Position.z = 0;
-       // vTexCoord = iPos.xyz;
+    gl_Position = GetClipPos(worldPos);
+    gl_Position.z = 0;
 }
 
 void PS()
 {
-    vec4 diffColor = vec4(1, 0, 0, 1);
+    vec4 diffColor = vec4(1, 1, 1, 1);
 
     gl_FragColor = diffColor;
 }
