@@ -1,20 +1,24 @@
 <renderpath>
-    <rendertarget name="RTVismap" sizedivisor="1 1" filter="true"/>
 
-    <command type="clear" color="0.1 0.1 0.1 1" output="RTVismap"/>
-
-    <command type="scenepass" pass="vismap" output="RTVismap"/>
-
-    <command type="clear" color="fog" depth="1.0" stencil="0"/>
+    <!-- Draw main -->
+    <command type="clear" color="0 0.5 1 1" depth="1.0" stencil="0" />
     <command type="scenepass" pass="base" vertexlights="true" metadata="base"/>
 
-    <command type="quad" vs="CopyFramebuffer" ps="CopyFramebuffer" output="viewport">
-        <texture unit="diffuse" name="RTVismap"/>
+    <!-- Draw vismap -->
+    <rendertarget name="RTVismap" sizedivisor="1 1" format="rgba"/>
+
+    <command type="clear" color="0 0 0 0.2" output="RTVismap"/>
+    <command type="scenepass" pass="vismap_draw" output="RTVismap"/>
+
+    <command type="quad" vs="VisMap_apply" ps="VisMap_apply" blend="multiply" output="viewport">
+        <texture unit="diffuse" name="RTVisMap" />
     </command>
 
-    <!--command type="quad" vs="VisMap_apply" ps="VisMap_apply" output="viewport">
-        <texture unit="diffuse" name="RTVisMap" />
+    <!--command type="quad" vs="CopyFramebuffer" ps="CopyFramebuffer" output="viewport">
+        <texture unit="diffuse" name="RTVismap"/>
     </command-->
+
+
 
     <!--command type="forwardlights" pass="light"/>
     <command type="scenepass" pass="postopaque"/>

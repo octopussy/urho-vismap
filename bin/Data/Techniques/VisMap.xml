@@ -1,3 +1,0 @@
-<technique vs="VisMap_draw" ps="VisMap_draw">
-    <pass name="vismap" vs="VisMap_draw" ps="VisMap_draw" blend="replace"/>
-</technique>

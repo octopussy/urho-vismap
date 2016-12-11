@@ -11,19 +11,15 @@
 using namespace Urho3D;
 
 class Level {
-    std::vector<PODVector<Vector2> > rawData;
+    std::vector<PODVector<Vector2> > rawData_;
 
     Context *context_;
 
     Scene *mainScene_;
 
-    //Scene *rttScene_;
+    Material *material_;
 
     class CustomGeometry *visMapGeometry_;
-
-   // class CustomGeometry *pass2Geometry_;
-
-    //SharedPtr<Material> pass1Material_;
 
     SharedPtr<PhysicsWorld2D> b2world_;
 
@@ -34,7 +30,7 @@ public:
 
     virtual ~Level() {}
 
-    void GetVisPoints(const Vector2 &vector2, std::vector<Vector2>& out);
+    void CalcGeometry(const Vector2 &vector2, float mapShift, std::vector<Vector2> &out);
 
     void PostRender(DebugRenderer *debugRenderer);
 
@@ -47,7 +43,7 @@ private:
         o.Push(Vector2(200, -100));
         o.Push(Vector2(300, 300));
         o.Push(Vector2(-300, 300));
-        rawData.push_back(o);
+        rawData_.push_back(o);
 
         float r = 65.0f;
         float x = 100.0f;
@@ -57,7 +53,7 @@ private:
             float step =  (s / 10.0f) * M_PI * 2;
             o.Push(Vector2(cosf(step) * r + x, sinf(step) * r + y));
         }
-        rawData.push_back(o);
+        rawData_.push_back(o);
 
         r = 45.0f;
         x = -100.0f;
@@ -67,6 +63,6 @@ private:
             float step =  (s / 10.0f) * M_PI * 2;
             o.Push(Vector2(cosf(step) * r + x, sinf(step) * r + y));
         }
-        rawData.push_back(o);
+        rawData_.push_back(o);
     }
 };

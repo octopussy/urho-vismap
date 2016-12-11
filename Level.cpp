@@ -24,22 +24,22 @@ void Level::Init(Context *context, Scene *mainScene, Camera *camera) {
 
     Node *b2geometry = mainScene->CreateChild("b2Geometry");
 
-    for (int i = 0; i < rawData.size(); ++i) {
+    for (int i = 0; i < rawData_.size(); ++i) {
         b2geometry->CreateComponent<RigidBody2D>();
         CollisionChain2D *chain = b2geometry->CreateComponent<CollisionChain2D>();
-        chain->SetVertices(rawData[i]);
+        chain->SetVertices(rawData_[i]);
         chain->SetLoop(true);
     }
 
     ResourceCache *cache = mainScene->GetSubsystem<ResourceCache>();
-    Material *pass1Material_ = new Material(context_);
-    pass1Material_->SetTechnique(0, cache->GetResource<Technique>("Techniques/VisMap.xml"));
-    pass1Material_->SetCullMode(CULL_NONE);
+    material_ = new Material(context_);
+    material_->SetTechnique(0, cache->GetResource<Technique>("Techniques/Vismap.xml"));
+    material_->SetCullMode(CULL_NONE);
 
     Node *rttVisGeom = mainScene->CreateChild("rttVisGeometry");
     visMapGeometry_ = rttVisGeom->CreateComponent<CustomGeometry>();
     visMapGeometry_->SetDynamic(true);
-    visMapGeometry_->SetMaterial(pass1Material_);
+    visMapGeometry_->SetMaterial(material_);
 }
 
 float angle(double x, double y) {
@@ -77,13 +77,17 @@ Vector2 rotatedVectorRad(const Vector2 &v, float radians) {
 
 
 // TODO: запилить отсечение невидимой геометрии, ну и прочая оптимизация не помешает
-void Level::GetVisPoints(const Vector2 &center, std::vector<Vector2> &out) {
+void Level::CalcGeometry(const Vector2 &center, float mapShift, std::vector<Vector2> &out) {
+
+    material_->SetShaderParameter("CenterPos", center);
+    material_->SetShaderParameter("VisMapShift", 10.0f);
+
     std::vector<Vector2> points;
 
     PhysicsWorld2D *phWorld = mainScene_->GetComponent<PhysicsWorld2D>();
 
-    for (int i = 0; i < rawData.size(); ++i) {
-        PODVector<Vector2> &v = rawData[i];
+    for (int i = 0; i < rawData_.size(); ++i) {
+        PODVector<Vector2> &v = rawData_[i];
         // тут я чето с копированием затупил :( хз как правильно
         for (int j = 0; j < v.Size(); ++j) {
             const Vector2 &value = v[j];

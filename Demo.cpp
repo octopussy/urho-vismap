@@ -12,7 +12,6 @@
 #include <Urho3D/Graphics/Octree.h>
 #include <Urho3D/Graphics/Renderer.h>
 #include <Urho3D/Graphics/Model.h>
-#include <Urho3D/Graphics/Octree.h>
 #include <Urho3D/Graphics/RenderPath.h>
 #include <Urho3D/Graphics/StaticModel.h>
 #include <Urho3D/UI/Font.h>
@@ -105,16 +104,12 @@ void Demo::HandleUpdate(StringHash eventType, VariantMap &eventData) {
 
     float timeStep = eventData[P_TIMESTEP].GetFloat();
 
-    Graphics *graphics = GetSubsystem<Graphics>();
-
     MoveCamera(timeStep);
 
     const Vector2 &camPosition = cameraNode_->GetPosition2D();
 
-    viewport_->GetRenderPath()->SetShaderParameter("CenterPos", camPosition);
-    viewport_->GetRenderPath()->SetShaderParameter("VisMapShift", 10.0f);
     std::vector<Vector2> points;
-    level_->GetVisPoints(camPosition, points);
+    level_->CalcGeometry(camPosition, 10.0f, points);
 
     for (int i = 0; i < points.size(); ++i) {
         debugRenderer_->AddLine(camPosition, points[i], Color::BLUE);
