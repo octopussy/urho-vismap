@@ -10,8 +10,7 @@ void VS()
     mat4 modelMatrix = iModelMatrix;
     vec3 worldPos = GetWorldPos(modelMatrix);
     gl_Position = GetClipPos(worldPos);
-    vScreenPos = GetQuadTexCoord(gl_Position);
-    vScreenPos.y = 1.0 - vScreenPos.y;
+    vScreenPos = GetScreenPosPreDiv(gl_Position);
 }
 
 void PS()

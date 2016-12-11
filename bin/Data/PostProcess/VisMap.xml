@@ -1,5 +1,0 @@
-<renderpath>
-    <command type="quad" tag="VisMap" vs="VisMapPass2" ps="VisMapPass2" output="viewport">
-        <texture unit="diffuse" name="RTVisMap" />
-    </command>
-</renderpath>

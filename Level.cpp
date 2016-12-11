@@ -2,13 +2,11 @@
 #include <Urho3D/Urho2D/RigidBody2D.h>
 #include <Urho3D/Urho2D/CollisionChain2D.h>
 #include <Urho3D/Graphics/Material.h>
-#include <Urho3D/Graphics/RenderPath.h>
 #include <Urho3D/Graphics/Texture2D.h>
 #include <Urho3D/Graphics/CustomGeometry.h>
 #include <Urho3D/Graphics/Technique.h>
 #include <Urho3D/Urho2D/PhysicsWorld2D.h>
 #include <Urho3D/Resource/ResourceCache.h>
-#include <Urho3D/Resource/XMLFile.h>
 #include <Urho3D/Graphics/Graphics.h>
 #include <Urho3D/Graphics/Octree.h>
 #include <Urho3D/Graphics/Renderer.h>
@@ -17,15 +15,14 @@
 Level::Level() {
 }
 
-void Level::Init(Context *context, Viewport* viewport, Scene *mainScene, Camera *camera) {
+void Level::Init(Context *context, Scene *mainScene, Camera *camera) {
     context_ = context;
-    rttScene_ = new Scene(context);
-    rttScene_->CreateComponent<Octree>();
-    b2world_ = rttScene_->CreateComponent<PhysicsWorld2D>();
+    mainScene_ = mainScene;
+    b2world_ = mainScene->CreateComponent<PhysicsWorld2D>();
 
     InitRawData();
 
-    Node *b2geometry = rttScene_->CreateChild("b2Geometry");
+    Node *b2geometry = mainScene->CreateChild("b2Geometry");
 
     for (int i = 0; i < rawData.size(); ++i) {
         b2geometry->CreateComponent<RigidBody2D>();
@@ -34,36 +31,15 @@ void Level::Init(Context *context, Viewport* viewport, Scene *mainScene, Camera 
         chain->SetLoop(true);
     }
 
-    ResourceCache *cache = rttScene_->GetSubsystem<ResourceCache>();
-    pass1Material_ = new Material(context_);
+    ResourceCache *cache = mainScene->GetSubsystem<ResourceCache>();
+    Material *pass1Material_ = new Material(context_);
     pass1Material_->SetTechnique(0, cache->GetResource<Technique>("Techniques/VisMap.xml"));
     pass1Material_->SetCullMode(CULL_NONE);
 
-    Node *rttVisGeom = rttScene_->CreateChild("rttVisGeometry");
+    Node *rttVisGeom = mainScene->CreateChild("rttVisGeometry");
     visMapGeometry_ = rttVisGeom->CreateComponent<CustomGeometry>();
     visMapGeometry_->SetDynamic(true);
     visMapGeometry_->SetMaterial(pass1Material_);
-
-    SharedPtr<Texture2D> renderTexture(new Texture2D(context_));
-    renderTexture->SetName("RTVisMap");
-    cache->AddManualResource(renderTexture);
-
-    renderTexture->SetSize(1024, 768, Graphics::GetRGBFormat(), TEXTURE_RENDERTARGET);
-    renderTexture->SetFilterMode(FILTER_BILINEAR);
-
-    RenderSurface *surface = renderTexture->GetRenderSurface();
-    surface->SetUpdateMode(SURFACE_UPDATEALWAYS);
-
-    SharedPtr<Viewport> rttViewport(new Viewport(context_, rttScene_, camera));
-    surface->SetViewport(0, rttViewport);
-
-    Renderer *renderer = rttScene_->GetSubsystem<Renderer>();
-    //renderer->SetViewport(0, rttViewport);
-
-    SharedPtr<RenderPath> effectRenderPath = viewport->GetRenderPath()->Clone();
-    effectRenderPath->Append(cache->GetResource<XMLFile>("PostProcess/VisMap.xml"));
-
-    viewport->SetRenderPath(effectRenderPath);
 }
 
 float angle(double x, double y) {
@@ -104,7 +80,7 @@ Vector2 rotatedVectorRad(const Vector2 &v, float radians) {
 void Level::GetVisPoints(const Vector2 &center, std::vector<Vector2> &out) {
     std::vector<Vector2> points;
 
-    PhysicsWorld2D *phWorld = rttScene_->GetComponent<PhysicsWorld2D>();
+    PhysicsWorld2D *phWorld = mainScene_->GetComponent<PhysicsWorld2D>();
 
     for (int i = 0; i < rawData.size(); ++i) {
         PODVector<Vector2> &v = rawData[i];
@@ -122,9 +98,6 @@ void Level::GetVisPoints(const Vector2 &center, std::vector<Vector2> &out) {
     const float MAX_DISTANCE = 1000.f;
     const float ANGLE_BIAS = 0.00001f;
     const float DISTANCE_EPSILON = 0.5f;
-
-    pass1Material_->SetShaderParameter("CenterPos", center);
-    pass1Material_->SetShaderParameter("VisMapShift", 10.0f);
 
     for (int i = 0; i < points.size(); ++i) {
         Vector2 point = points[i];
@@ -148,8 +121,6 @@ void Level::GetVisPoints(const Vector2 &center, std::vector<Vector2> &out) {
         }
     }
 
-
-    ResourceCache *cache = rttScene_->GetSubsystem<ResourceCache>();
     visMapGeometry_->BeginGeometry(0, TRIANGLE_FAN);
     visMapGeometry_->SetDynamic(true);
     visMapGeometry_->DefineVertex(center);
@@ -171,7 +142,4 @@ void Level::GetVisPoints(const Vector2 &center, std::vector<Vector2> &out) {
 void Level::PostRender(DebugRenderer *debugRenderer) {
     b2world_->SetDrawShape(true);
     b2world_->DrawDebugGeometry();
-
-    Graphics *graphics = rttScene_->GetSubsystem<Graphics>();
-    //visMapGeometry->DrawDebugGeometry(debugRenderer, false);
 }

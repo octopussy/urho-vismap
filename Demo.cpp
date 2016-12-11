@@ -13,7 +13,7 @@
 #include <Urho3D/Graphics/Renderer.h>
 #include <Urho3D/Graphics/Model.h>
 #include <Urho3D/Graphics/Octree.h>
-#include <Urho3D/Graphics/Renderer.h>
+#include <Urho3D/Graphics/RenderPath.h>
 #include <Urho3D/Graphics/StaticModel.h>
 #include <Urho3D/UI/Font.h>
 #include <Urho3D/UI/Text.h>
@@ -68,18 +68,13 @@ void Demo::Start() {
     camera->SetOrthographic(true);
     camera->SetOrthoSize((float) 500);
 
-    Node* lightNode = mainScene_->CreateChild("DirectionalLight");
-    lightNode->SetDirection(Vector3(0.6f, -1.0f, 0.8f)); // The direction vector does not need to be normalized
-    Light* light = lightNode->CreateComponent<Light>();
-    light->SetLightType(LIGHT_DIRECTIONAL);
-
     Renderer *renderer = GetSubsystem<Renderer>();
-
-    SharedPtr<Viewport> viewport(new Viewport(context_, mainScene_, cameraNode_->GetComponent<Camera>()));
-    renderer->SetViewport(0, viewport);
+    renderer->SetDefaultRenderPath(cache->GetResource<XMLFile>("RenderPaths/VismapRenderPath.xml"));
+    viewport_ = new Viewport(context_, mainScene_, cameraNode_->GetComponent<Camera>());
+    renderer->SetViewport(0, viewport_);
 
     level_ = new Level();
-    level_->Init(context_, viewport, mainScene_, cameraNode_->GetComponent<Camera>());
+    level_->Init(context_, mainScene_, cameraNode_->GetComponent<Camera>());
 
     SubscribeToEvent(E_UPDATE, URHO3D_HANDLER(Demo, HandleUpdate));
     SubscribeToEvent(E_RENDERUPDATE, URHO3D_HANDLER(Demo, Render));
@@ -87,20 +82,15 @@ void Demo::Start() {
  //   UnsubscribeFromEvent(E_SCENEUPDATE);
 }
 
-void Demo::CreateB2Geometry() {
-
-}
-
 void Demo::CreateUI() {
     ResourceCache *cache = GetSubsystem<ResourceCache>();
-    // Construct new Text object
 
     Text *text = new Text(context_);
     debugText_ = text;
 
     // Set font and text color
     debugText_->SetFont(cache->GetResource<Font>("Data/Fonts/BlueHighway.ttf"), 14);
-    debugText_->SetColor(Color(1.0f, 1.0f, 1.0f));
+    debugText_->SetColor(Color(0.0f, 1.0f, 0.0f));
 
     // Align Text center-screen
     debugText_->SetHorizontalAlignment(HA_LEFT);
@@ -113,28 +103,16 @@ void Demo::CreateUI() {
 void Demo::HandleUpdate(StringHash eventType, VariantMap &eventData) {
     using namespace Update;
 
-    Graphics *graphics = GetSubsystem<Graphics>();
-
-    // Take the frame time step, which is stored as a float
     float timeStep = eventData[P_TIMESTEP].GetFloat();
 
-    // Move the camera, scale movement with time step
-    MoveCamera(timeStep);
-
-    String str;
-    const Vector2 &pos = cameraNode_->GetPosition2D();
-    str.AppendWithFormat("Pos: %f %f", roundf(pos.x_), roundf(pos.y_));
-    debugText_->SetText(str);
-}
-
-void Demo::Render(StringHash eventType, VariantMap &eventData) {
-}
-
-void Demo::HandlePostRenderUpdate(StringHash eventType, VariantMap &eventData) {
     Graphics *graphics = GetSubsystem<Graphics>();
+
+    MoveCamera(timeStep);
 
     const Vector2 &camPosition = cameraNode_->GetPosition2D();
 
+    viewport_->GetRenderPath()->SetShaderParameter("CenterPos", camPosition);
+    viewport_->GetRenderPath()->SetShaderParameter("VisMapShift", 10.0f);
     std::vector<Vector2> points;
     level_->GetVisPoints(camPosition, points);
 
@@ -145,6 +123,16 @@ void Demo::HandlePostRenderUpdate(StringHash eventType, VariantMap &eventData) {
     level_->PostRender(debugRenderer_);
 
     debugRenderer_->AddCircle(camPosition, Vector3::FORWARD, 5.0f, Color::MAGENTA);
+    String str;
+    const Vector2 &pos = cameraNode_->GetPosition2D();
+    str.AppendWithFormat("Pos: %f %f", roundf(pos.x_), roundf(pos.y_));
+    debugText_->SetText(str);
+}
+
+void Demo::Render(StringHash eventType, VariantMap &eventData) {
+}
+
+void Demo::HandlePostRenderUpdate(StringHash eventType, VariantMap &eventData) {
 }
 
 void Demo::MoveCamera(float timeStep) {

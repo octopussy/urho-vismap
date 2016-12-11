@@ -9,6 +9,8 @@ using namespace Urho3D;
 class Demo : public Application {
     URHO3D_OBJECT(Demo, Application);
 
+    SharedPtr<Viewport> viewport_;
+
     SharedPtr<Scene> mainScene_;
 
     SharedPtr<DebugRenderer> debugRenderer_;
@@ -36,6 +38,4 @@ private:
     void HandlePostRenderUpdate(StringHash eventType, VariantMap &eventData);
 
     void MoveCamera(float step);
-
-    void CreateB2Geometry();
 };

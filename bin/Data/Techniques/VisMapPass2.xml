@@ -1,3 +1,0 @@
-<technique vs="VisMapPass2" ps="VisMapPass2">
-    <pass name="base" depthwrite="false" blend="alpha" />
-</technique>
