@@ -75,12 +75,10 @@ Vector2 rotatedVectorRad(const Vector2 &v, float radians) {
     return Vector2(v.x_ * cos - v.y_ * sin, v.x_ * sin + v.y_ * cos);
 }
 
-
-// TODO: запилить отсечение невидимой геометрии, ну и прочая оптимизация не помешает
 void Level::CalcGeometry(const Vector2 &center, float mapShift, std::vector<Vector2> &out) {
 
     material_->SetShaderParameter("CenterPos", center);
-    material_->SetShaderParameter("VisMapShift", 10.0f);
+    material_->SetShaderParameter("VisMapShift", mapShift);
 
     std::vector<Vector2> points;
 

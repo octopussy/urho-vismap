@@ -21,6 +21,8 @@ class Demo : public Application {
 
     Level* level_;
 
+    float mapShiftDistance_;
+
 public:
     Demo(Context* context);
 
@@ -36,6 +38,8 @@ private:
     void Render(StringHash eventType, VariantMap &eventData);
 
     void HandlePostRenderUpdate(StringHash eventType, VariantMap &eventData);
+
+    void HandleDistanceSliderChanged(StringHash eventType, VariantMap& eventData);
 
     void MoveCamera(float step);
 };

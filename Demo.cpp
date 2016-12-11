@@ -16,7 +16,9 @@
 #include <Urho3D/Graphics/StaticModel.h>
 #include <Urho3D/UI/Font.h>
 #include <Urho3D/UI/Text.h>
+#include <Urho3D/UI/Slider.h>
 #include <Urho3D/UI/UI.h>
+#include <Urho3D/UI/UIEvents.h>
 
 #include <Urho3D/Scene/Scene.h>
 #include <Urho3D/Scene/SceneEvents.h>
@@ -44,6 +46,7 @@ void Demo::Setup() {
     engineParameters_["FullScreen"] = false;
     engineParameters_["Headless"] = false;
     engineParameters_["Sound"] = false;
+    engineParameters_["VSync"] = true;
 }
 
 void Demo::Start() {
@@ -78,11 +81,17 @@ void Demo::Start() {
     SubscribeToEvent(E_UPDATE, URHO3D_HANDLER(Demo, HandleUpdate));
     SubscribeToEvent(E_RENDERUPDATE, URHO3D_HANDLER(Demo, Render));
     SubscribeToEvent(E_POSTRENDERUPDATE, URHO3D_HANDLER(Demo, HandlePostRenderUpdate));
- //   UnsubscribeFromEvent(E_SCENEUPDATE);
+    //   UnsubscribeFromEvent(E_SCENEUPDATE);
 }
 
 void Demo::CreateUI() {
+    using namespace Update;
+
     ResourceCache *cache = GetSubsystem<ResourceCache>();
+
+    UI *ui = GetSubsystem<UI>();
+    XMLFile *style = cache->GetResource<XMLFile>("UI/DefaultStyle.xml");
+    ui->GetRoot()->SetDefaultStyle(style);
 
     Text *text = new Text(context_);
     debugText_ = text;
@@ -96,20 +105,47 @@ void Demo::CreateUI() {
     debugText_->SetVerticalAlignment(VA_TOP);
 
     // Add Text instance to the UI root element
-    GetSubsystem<UI>()->GetRoot()->AddChild(debugText_);
+    ui->GetRoot()->AddChild(debugText_);
+
+    Slider *distanceSlider = ui->GetRoot()->CreateChild<Slider>();
+    distanceSlider->SetStyleAuto();
+    distanceSlider->SetPosition(10, 100);
+    distanceSlider->SetSize(300, 20);
+    distanceSlider->SetRange(50.0f);
+    SubscribeToEvent(distanceSlider, E_SLIDERCHANGED, URHO3D_HANDLER(Demo, HandleDistanceSliderChanged));
+    distanceSlider->SetValue(2.5f);
+}
+
+void Demo::HandleDistanceSliderChanged(StringHash eventType, VariantMap &eventData) {
+    float newValue = eventData[SliderChanged::P_VALUE].GetFloat();
+    mapShiftDistance_ = newValue;
 }
 
 void Demo::HandleUpdate(StringHash eventType, VariantMap &eventData) {
     using namespace Update;
 
+    static float timer = 0.0f;
+    static int counter = 0;
+    static float fps = 0.0f;
+
     float timeStep = eventData[P_TIMESTEP].GetFloat();
+
+    counter += 1;
+    timer += timeStep;
+
+
+    if (timer >= 0.5f) {
+        fps = counter / timer;
+        timer = 0.0f;
+        counter = 0;
+    }
 
     MoveCamera(timeStep);
 
     const Vector2 &camPosition = cameraNode_->GetPosition2D();
 
     std::vector<Vector2> points;
-    level_->CalcGeometry(camPosition, 10.0f, points);
+    level_->CalcGeometry(camPosition, mapShiftDistance_, points);
 
     for (int i = 0; i < points.size(); ++i) {
         debugRenderer_->AddLine(camPosition, points[i], Color::BLUE);
@@ -120,7 +156,10 @@ void Demo::HandleUpdate(StringHash eventType, VariantMap &eventData) {
     debugRenderer_->AddCircle(camPosition, Vector3::FORWARD, 5.0f, Color::MAGENTA);
     String str;
     const Vector2 &pos = cameraNode_->GetPosition2D();
-    str.AppendWithFormat("Pos: %f %f", roundf(pos.x_), roundf(pos.y_));
+    str.AppendWithFormat("fps: %f\nposition: %f %f\nshift: %f",
+                         roundf(fps),
+                         roundf(pos.x_), roundf(pos.y_),
+                         roundf(mapShiftDistance_));
     debugText_->SetText(str);
 }
 
